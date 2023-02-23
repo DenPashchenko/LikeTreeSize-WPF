@@ -252,7 +252,6 @@ namespace TreeSizeApp.ViewModel
 
             }
             catch (UnauthorizedAccessException) { }
-            catch (DirectoryNotFoundException) { }
 
             try
             {
@@ -288,7 +287,6 @@ namespace TreeSizeApp.ViewModel
                 });
             }
             catch (UnauthorizedAccessException) { }
-            catch (DirectoryNotFoundException) { }
         }
 
         private void GetProgress()
