@@ -193,6 +193,7 @@ namespace TreeSizeApp.ViewModel
                 Name = _rootDir.Name,
                 Nodes = new ObservableCollection<Node>(),
                 Icon = DriveIcon,
+                IsExpanded = true
             };
             Nodes.Add(rootNode);
 
@@ -223,7 +224,8 @@ namespace TreeSizeApp.ViewModel
                     {
                         Name = subdirectory.Name,
                         Nodes = new ObservableCollection<Node>(),
-                        Icon = FolderIcon
+                        Icon = FolderIcon,
+                        IsExpanded = false
                     };
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
@@ -252,6 +254,7 @@ namespace TreeSizeApp.ViewModel
 
             }
             catch (UnauthorizedAccessException) { }
+            catch (DirectoryNotFoundException) { }
 
             try
             {
@@ -287,6 +290,7 @@ namespace TreeSizeApp.ViewModel
                 });
             }
             catch (UnauthorizedAccessException) { }
+            catch (FileNotFoundException) { }
         }
 
         private void GetProgress()

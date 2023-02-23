@@ -75,6 +75,8 @@ namespace TreeSizeApp.Model
             }
         }
 
+        public bool IsExpanded { get; set; }
+
         public ObservableCollection<Node>? Nodes { get; set; }
         #endregion
 

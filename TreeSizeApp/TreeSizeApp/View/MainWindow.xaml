@@ -86,6 +86,11 @@
             <TreeView Grid.Row="1" Grid.ColumnSpan="9" HorizontalAlignment="Stretch" 
                       HorizontalContentAlignment="Stretch"
                       ItemsSource="{Binding Path=Nodes}">
+                <TreeView.ItemContainerStyle>
+                    <Style TargetType="TreeViewItem">
+                        <Setter Property="IsExpanded" Value="{Binding IsExpanded}" />
+                    </Style>
+                </TreeView.ItemContainerStyle>
                 <TreeView.ItemTemplate>
                     <HierarchicalDataTemplate ItemsSource="{Binding Path=Nodes}">
                         <Grid x:Name="treeViewGrid">
