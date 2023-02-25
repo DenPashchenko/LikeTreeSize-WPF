@@ -197,6 +197,28 @@ namespace TreeSizeApp.ViewModel
             };
             Nodes.Add(rootNode);
 
+            IDirectoryInfo[]? subdirectories = Array.Empty<IDirectoryInfo>();
+            try
+            {
+                subdirectories = _directoryService.GetDirectories(_rootDir.Name);
+                foreach (var subdirectory in subdirectories)
+                {
+                    Node node = new()
+                    {
+                        Name = subdirectory.Name,
+                        Nodes = new ObservableCollection<Node>(),
+                        Icon = FolderIcon,
+                        IsExpanded = false
+                    };
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        rootNode.Nodes.Add(node);
+                    });
+                }
+            }
+            catch (UnauthorizedAccessException) { }
+            catch (DirectoryNotFoundException) { }
+
             await GetFoldersAndFilesAsync(rootNode, _rootDir.Name, cancellationToken);
             if (!cancellationToken.IsCancellationRequested)
             {
@@ -217,9 +239,19 @@ namespace TreeSizeApp.ViewModel
 
             try
             {
+                int topLevelFoldersCounter = 0;
                 subdirectories = _directoryService.GetDirectories(parentDirectory);
+
                 foreach (var subdirectory in subdirectories)
                 {
+                    if (parentNode.Name == _rootDir.Name)
+                    {
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            parentNode.Nodes.RemoveAt(topLevelFoldersCounter);
+
+                        });
+                    }
                     Node node = new()
                     {
                         Name = subdirectory.Name,
@@ -229,7 +261,15 @@ namespace TreeSizeApp.ViewModel
                     };
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        parentNode.Nodes.Add(node);
+                        if (parentNode.Name == _rootDir.Name)
+                        {
+                            parentNode.Nodes.Insert(topLevelFoldersCounter, node);
+                            topLevelFoldersCounter++;
+                        }
+                        else
+                        {
+                            parentNode.Nodes.Add(node);
+                        }
                     });
 
                     await GetFoldersAndFilesAsync(node, subdirectory.FullName.ToString(), cancellationToken);
