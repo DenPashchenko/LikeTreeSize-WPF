@@ -197,28 +197,6 @@ namespace TreeSizeApp.ViewModel
             };
             Nodes.Add(rootNode);
 
-            IDirectoryInfo[]? subdirectories = Array.Empty<IDirectoryInfo>();
-            try
-            {
-                subdirectories = _directoryService.GetDirectories(_rootDir.Name);
-                foreach (var subdirectory in subdirectories)
-                {
-                    Node node = new()
-                    {
-                        Name = subdirectory.Name,
-                        Nodes = new ObservableCollection<Node>(),
-                        Icon = FolderIcon,
-                        IsExpanded = false
-                    };
-                    await Application.Current.Dispatcher.InvokeAsync(() =>
-                    {
-                        rootNode.Nodes.Add(node);
-                    });
-                }
-            }
-            catch (UnauthorizedAccessException) { }
-            catch (DirectoryNotFoundException) { }
-
             await GetFoldersAndFilesAsync(rootNode, _rootDir.Name, cancellationToken);
             if (!cancellationToken.IsCancellationRequested)
             {
@@ -234,24 +212,22 @@ namespace TreeSizeApp.ViewModel
 
         private async Task GetFoldersAndFilesAsync(Node parentNode, string parentDirectory, CancellationToken cancellationToken)
         {
+            const double  MaxSystemResourceUsage = 0.5;
+            const double CoresPerProcessor = 2;
+
             IFileInfo[]? files = Array.Empty<IFileInfo>();
             IDirectoryInfo[]? subdirectories = Array.Empty<IDirectoryInfo>();
+            var parallelOptions = new ParallelOptions 
+            { 
+                MaxDegreeOfParallelism = Convert.ToInt32(Math.Ceiling(Environment.ProcessorCount * MaxSystemResourceUsage) * CoresPerProcessor) 
+            };
 
             try
             {
-                int topLevelFoldersCounter = 0;
                 subdirectories = _directoryService.GetDirectories(parentDirectory);
 
-                foreach (var subdirectory in subdirectories)
+                await Parallel.ForEachAsync(subdirectories, parallelOptions, async (subdirectory, cancellationToken) =>
                 {
-                    if (parentNode.Name == _rootDir.Name)
-                    {
-                        await Application.Current.Dispatcher.InvokeAsync(() =>
-                        {
-                            parentNode.Nodes.RemoveAt(topLevelFoldersCounter);
-
-                        });
-                    }
                     Node node = new()
                     {
                         Name = subdirectory.Name,
@@ -259,14 +235,10 @@ namespace TreeSizeApp.ViewModel
                         Icon = FolderIcon,
                         IsExpanded = false
                     };
+
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        if (parentNode.Name == _rootDir.Name)
-                        {
-                            parentNode.Nodes.Insert(topLevelFoldersCounter, node);
-                            topLevelFoldersCounter++;
-                        }
-                        else
+                        lock (parentNode)
                         {
                             parentNode.Nodes.Add(node);
                         }
@@ -276,22 +248,33 @@ namespace TreeSizeApp.ViewModel
 
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        parentNode.Size += node.Size;
-                        parentNode.FileCount += node.FileCount;
-                        parentNode.FolderCount += node.FolderCount;
-                        parentNode.SutableSize = _sizeConverter.Convert(parentNode.Size);
+                        lock (parentNode)
+                        {
+                            parentNode.Size += node.Size;
+                            parentNode.FileCount += node.FileCount;
+                            parentNode.FolderCount += node.FolderCount;
+                            parentNode.SutableSize = _sizeConverter.Convert(parentNode.Size);
+                        }
                     });
-                }
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                });
                 if (cancellationToken.IsCancellationRequested)
                 {
                     return;
                 }
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    parentNode.FolderCount += subdirectories.Length;
-                    OnPropertyChanged(nameof(Nodes));
-                });
+                    lock (parentNode)
+                    {
+                        parentNode.FolderCount += subdirectories.Length;
+                    }
 
+                    OnPropertyChanged(nameof(Nodes));
+
+                });
             }
             catch (UnauthorizedAccessException) { }
             catch (DirectoryNotFoundException) { }
@@ -299,6 +282,35 @@ namespace TreeSizeApp.ViewModel
             try
             {
                 files = _directoryService.GetFiles(parentDirectory);
+
+                //await Parallel.ForEachAsync(files, parallelOptions, async (file, cancellationToken) =>
+                //{
+                //    Node fileNode = new()
+                //    {
+                //        Name = file.Name,
+                //        Size = file.Length,
+                //        SutableSize = _sizeConverter.Convert(file.Length),
+                //        Icon = FileIcon,
+                //        FileCount = 1
+                //    };
+                //    await Application.Current.Dispatcher.InvokeAsync(() =>
+                //    {
+                //        lock (parentNode)
+                //        {
+                //            parentNode.Nodes.Add(fileNode);
+                //            parentNode.Size += file.Length;
+                //            parentNode.SutableSize = _sizeConverter.Convert(parentNode.Size);
+
+                //            currentSize += file.Length;
+                //            GetProgress();
+                //        }
+                //    });
+                //    if (cancellationToken.IsCancellationRequested)
+                //    {
+                //        return;
+                //    }
+                //});
+
                 foreach (var file in files)
                 {
                     Node fileNode = new()
@@ -309,28 +321,40 @@ namespace TreeSizeApp.ViewModel
                         Icon = FileIcon,
                         FileCount = 1
                     };
-                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    await Application.Current.Dispatcher.InvokeAsync(async () =>
                     {
-                        parentNode.Nodes.Add(fileNode);
-                        parentNode.Size += file.Length;
-                        parentNode.SutableSize = _sizeConverter.Convert(parentNode.Size);
+                        lock (parentNode)
+                        {
+                            parentNode.Nodes.Add(fileNode);
+                            parentNode.Size += file.Length;
+                            parentNode.SutableSize = _sizeConverter.Convert(parentNode.Size);
 
-                        currentSize += file.Length;
-                        GetProgress();
+                            currentSize += file.Length;
+                            GetProgress();
+                        }
                     });
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
                 }
+
+
                 if (cancellationToken.IsCancellationRequested)
                 {
                     return;
                 }
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    parentNode.FileCount += files.Length;
+                    lock (parentNode)
+                    {
+                        parentNode.FileCount += files.Length;
+                    }
                     OnPropertyChanged(nameof(Nodes));
                 });
             }
             catch (UnauthorizedAccessException) { }
-            catch (FileNotFoundException) { }
+            catch (DirectoryNotFoundException) { }
         }
 
         private void GetProgress()

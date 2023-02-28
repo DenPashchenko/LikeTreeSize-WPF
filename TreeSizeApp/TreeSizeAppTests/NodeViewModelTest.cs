@@ -55,21 +55,20 @@ namespace TreeSizeAppTests
             Assert.AreEqual(@"\Images\hdd_icon.png", viewModel.Nodes[0].Icon);
 
             Assert.AreEqual(3, viewModel.Nodes[0].Nodes.Count);
-            Assert.AreEqual("temp", viewModel.Nodes[0].Nodes[0].Name);
-            Assert.AreEqual(@"\Images\folder_icon.png", viewModel.Nodes[0].Nodes[0].Icon);
+            Assert.IsTrue(viewModel.Nodes[0].Nodes.Any(n => n.Name == "temp"));
+            Assert.IsTrue(viewModel.Nodes[0].Nodes.Any(n => n.Name == "MyDir1"));
+            Assert.IsTrue(viewModel.Nodes[0].Nodes.Any(n => n.Name == "MyDir2"));
+            Assert.IsTrue(viewModel.Nodes[0].Nodes.Any(n => n.Icon == @"\Images\folder_icon.png"));
 
-            Assert.AreEqual("MyDir1", viewModel.Nodes[0].Nodes[1].Name);
-            Assert.AreEqual(@"\Images\folder_icon.png", viewModel.Nodes[0].Nodes[1].Icon);
-
-            Assert.AreEqual(1, viewModel.Nodes[0].Nodes[1].Nodes.Count);
-            Assert.AreEqual("testFile1.txt", viewModel.Nodes[0].Nodes[1].Nodes[0].Name);
-            Assert.AreEqual(@"\Images\file_icon.png", viewModel.Nodes[0].Nodes[1].Nodes[0].Icon);
-            Assert.AreEqual(26, viewModel.Nodes[0].Nodes[1].Nodes[0].Size);
-            Assert.AreEqual("26 bytes", viewModel.Nodes[0].Nodes[1].Nodes[0].SutableSize);
+            Assert.IsTrue(viewModel.Nodes[0].Nodes.Any(n => n.Nodes.Count == 1));
+            Assert.IsTrue(viewModel.Nodes[0].Nodes.Any(n => n.Nodes.Any(n => n.Name == "testFile1.txt")));
+            Assert.IsTrue(viewModel.Nodes[0].Nodes.Any(n => n.Nodes.Any(n => n.Icon == @"\Images\file_icon.png")));
+            Assert.IsTrue(viewModel.Nodes[0].Nodes.Any(n => n.Nodes.Any(n => n.Size == 26)));
+            Assert.IsTrue(viewModel.Nodes[0].Nodes.Any(n => n.Nodes.Any(n => n.SutableSize == "26 bytes")));
 
             Assert.AreEqual(1, viewModel.Nodes[0].FileCount);
             Assert.AreEqual(3, viewModel.Nodes[0].FolderCount);
-            Assert.AreEqual(26, viewModel.Nodes[0].Size);
+            Assert.AreEqual(26, viewModel.Nodes[0].Size); ;
         }
     }
 }
