@@ -227,7 +227,7 @@ namespace TreeSizeApp.ViewModel
 
             try
             {
-                subdirectories = _directoryService.GetDirectories(parentDirectory);
+                subdirectories = await Task.Run(() => _directoryService.GetDirectories(parentDirectory));
 
                 await Parallel.ForEachAsync(subdirectories, parallelOptions, async (subdirectory, cancellationToken) =>
                 {
@@ -277,9 +277,7 @@ namespace TreeSizeApp.ViewModel
                         parentNode.FolderCount += subdirectories.Length;
                         parentNode.IsProcessed = true;
                     }
-
                     OnPropertyChanged(nameof(Nodes));
-
                 });
             }
             catch (UnauthorizedAccessException) { }
@@ -291,38 +289,9 @@ namespace TreeSizeApp.ViewModel
 
             try
             {
-                files = _directoryService.GetFiles(parentDirectory);
+                files = await Task.Run(() => _directoryService.GetFiles(parentDirectory));
 
-                //await Parallel.ForEachAsync(files, parallelOptions, async (file, cancellationToken) =>
-                //{
-                //    Node fileNode = new()
-                //    {
-                //        Name = file.Name,
-                //        Size = file.Length,
-                //        SutableSize = _sizeConverter.Convert(file.Length),
-                //        Icon = FileIcon,
-                //        FileCount = 1,
-                //        IsProcessed = true
-                //    };
-                //    await Application.Current.Dispatcher.InvokeAsync(() =>
-                //    {
-                //        lock (parentNode)
-                //        {
-                //            parentNode.Nodes.Add(fileNode);
-                //            parentNode.Size += file.Length;
-                //            parentNode.SutableSize = _sizeConverter.Convert(parentNode.Size);
-
-                //            currentSize += file.Length;
-                //            GetProgress();
-                //        }
-                //    });
-                //    if (cancellationToken.IsCancellationRequested)
-                //    {
-                //        return;
-                //    }
-                //});
-
-                foreach (var file in files)
+                await Parallel.ForEachAsync(files, parallelOptions, async (file, cancellationToken) =>
                 {
                     Node fileNode = new()
                     {
@@ -349,8 +318,7 @@ namespace TreeSizeApp.ViewModel
                     {
                         return;
                     }
-                }
-
+                });
 
                 if (cancellationToken.IsCancellationRequested)
                 {
