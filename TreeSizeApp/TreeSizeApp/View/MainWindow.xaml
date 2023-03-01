@@ -10,6 +10,9 @@
         xmlns:resx="clr-namespace:TreeSizeApp.Properties"
         mc:Ignorable="d"
         Title="Tree Size Scanner" Height="450" Width="900">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </Window.Resources>
     <Grid  d:DataContext="{d:DesignInstance Type=viewmodel:NodeViewModel}">
         <Grid.RowDefinitions>
             <RowDefinition Height="25*" MaxHeight="45"/>
@@ -111,8 +114,12 @@
                                 <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center"
                                            Padding="5,0,0,0" Text="{Binding Name}"/>
                             </DockPanel>
-                            <TextBlock Grid.Column="1" Width="200" Padding="3" 
-                                       Margin="-40 0 0 0" Text="{Binding SutableSize}"/>
+                            <StackPanel Grid.Column="1" Width="200" Margin="-40 0 0 0">
+                                <TextBlock Padding="3" Text="Scanning..." 
+                                           Visibility="{c:Binding !IsProcessed}" />
+                                <TextBlock Padding="3" Text="{Binding SutableSize}" 
+                                           Visibility="{Binding IsProcessed, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </StackPanel>
                             <TextBlock Grid.Column="2" Width="160" Padding="3" 
                                        Margin="-30 0 0 0" Text="{Binding FolderCount}"/>
                             <TextBlock Grid.Column="3" Width="Auto" Padding="3" 

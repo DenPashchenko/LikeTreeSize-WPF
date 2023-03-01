@@ -12,6 +12,7 @@ using TreeSizeApp.Model;
 using TreeSizeApp.ViewModel.Base;
 using System.IO.Abstractions;
 using TreeSizeApp.Services.Interfaces;
+using System.Collections.Concurrent;
 
 namespace TreeSizeApp.ViewModel
 {
@@ -193,7 +194,8 @@ namespace TreeSizeApp.ViewModel
                 Name = _rootDir.Name,
                 Nodes = new ObservableCollection<Node>(),
                 Icon = DriveIcon,
-                IsExpanded = true
+                IsExpanded = true,
+                IsProcessed = false
             };
             Nodes.Add(rootNode);
 
@@ -205,6 +207,7 @@ namespace TreeSizeApp.ViewModel
                     CurrentProgress = MaxProgressVolume;
                     IsNotScanning = true;
                     IsRefreshAllowed = true;
+                    rootNode.IsProcessed = true;
                     OnPropertyChanged(nameof(Nodes));
                 });
             }
@@ -212,14 +215,14 @@ namespace TreeSizeApp.ViewModel
 
         private async Task GetFoldersAndFilesAsync(Node parentNode, string parentDirectory, CancellationToken cancellationToken)
         {
-            const double  MaxSystemResourceUsage = 0.5;
+            const double MaxSystemResourceUsage = 0.25;
             const double CoresPerProcessor = 2;
 
             IFileInfo[]? files = Array.Empty<IFileInfo>();
             IDirectoryInfo[]? subdirectories = Array.Empty<IDirectoryInfo>();
-            var parallelOptions = new ParallelOptions 
-            { 
-                MaxDegreeOfParallelism = Convert.ToInt32(Math.Ceiling(Environment.ProcessorCount * MaxSystemResourceUsage) * CoresPerProcessor) 
+            var parallelOptions = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Convert.ToInt32(Math.Ceiling(Environment.ProcessorCount * MaxSystemResourceUsage) * CoresPerProcessor)
             };
 
             try
@@ -233,7 +236,8 @@ namespace TreeSizeApp.ViewModel
                         Name = subdirectory.Name,
                         Nodes = new ObservableCollection<Node>(),
                         Icon = FolderIcon,
-                        IsExpanded = false
+                        IsExpanded = false,
+                        IsProcessed = false
                     };
 
                     await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -261,6 +265,7 @@ namespace TreeSizeApp.ViewModel
                         return;
                     }
                 });
+               
                 if (cancellationToken.IsCancellationRequested)
                 {
                     return;
@@ -270,6 +275,7 @@ namespace TreeSizeApp.ViewModel
                     lock (parentNode)
                     {
                         parentNode.FolderCount += subdirectories.Length;
+                        parentNode.IsProcessed = true;
                     }
 
                     OnPropertyChanged(nameof(Nodes));
@@ -278,6 +284,10 @@ namespace TreeSizeApp.ViewModel
             }
             catch (UnauthorizedAccessException) { }
             catch (DirectoryNotFoundException) { }
+            finally
+            {
+                parentNode.IsProcessed = true;
+            }
 
             try
             {
@@ -291,7 +301,8 @@ namespace TreeSizeApp.ViewModel
                 //        Size = file.Length,
                 //        SutableSize = _sizeConverter.Convert(file.Length),
                 //        Icon = FileIcon,
-                //        FileCount = 1
+                //        FileCount = 1,
+                //        IsProcessed = true
                 //    };
                 //    await Application.Current.Dispatcher.InvokeAsync(() =>
                 //    {
@@ -319,9 +330,10 @@ namespace TreeSizeApp.ViewModel
                         Size = file.Length,
                         SutableSize = _sizeConverter.Convert(file.Length),
                         Icon = FileIcon,
-                        FileCount = 1
+                        FileCount = 1,
+                        IsProcessed = true
                     };
-                    await Application.Current.Dispatcher.InvokeAsync(async () =>
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         lock (parentNode)
                         {
@@ -355,6 +367,10 @@ namespace TreeSizeApp.ViewModel
             }
             catch (UnauthorizedAccessException) { }
             catch (DirectoryNotFoundException) { }
+            finally
+            {
+                parentNode.IsProcessed = true;
+            }
         }
 
         private void GetProgress()

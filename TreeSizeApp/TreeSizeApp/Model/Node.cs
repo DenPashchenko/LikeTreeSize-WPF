@@ -11,8 +11,9 @@ namespace TreeSizeApp.Model
         private long _size;
         private int _fileCount;
         private int _folderCount;
-        private string _sutableSize;
+        private string _sutableSize = "0 bytes";
         private string _icon;
+        private bool _isProcessed;
         #endregion
 
         #region Properties
@@ -72,6 +73,16 @@ namespace TreeSizeApp.Model
             {
                 _folderCount = value;
                 OnPropertyChanged(nameof(FolderCount));
+            }
+        }
+
+        public bool IsProcessed
+        {
+            get => _isProcessed;
+            set
+            {
+                _isProcessed = value;
+                OnPropertyChanged(nameof(IsProcessed));
             }
         }
 
