@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.IO.Abstractions;
 using TreeSizeApp.Services.Interfaces;
 
@@ -15,12 +16,26 @@ namespace TreeSizeApp.Services
 
         public IFileInfo[] GetFiles(string directoryInfo)
         {
-            return _fileSystem.DirectoryInfo.New(directoryInfo).GetFiles();
+            IFileInfo[] files = Array.Empty<IFileInfo>();
+            try
+            {
+                files = _fileSystem.DirectoryInfo.New(directoryInfo).GetFiles();
+            }
+            catch (UnauthorizedAccessException) { }
+            catch (DirectoryNotFoundException) { }
+            return files;
         }
 
         public IDirectoryInfo[] GetDirectories(string directoryInfo)
         {
-            return _fileSystem.DirectoryInfo.New(directoryInfo).GetDirectories();
+            IDirectoryInfo[]? subdirectories = Array.Empty<IDirectoryInfo>();
+            try
+            {
+                subdirectories = _fileSystem.DirectoryInfo.New(directoryInfo).GetDirectories();
+            }
+            catch (UnauthorizedAccessException) { }
+            catch (DirectoryNotFoundException) { }
+            return subdirectories;
         }
     }
 }
