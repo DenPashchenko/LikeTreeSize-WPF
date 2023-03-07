@@ -12,7 +12,6 @@ using TreeSizeApp.Model;
 using TreeSizeApp.ViewModel.Base;
 using System.IO.Abstractions;
 using TreeSizeApp.Services.Interfaces;
-using System.Collections.Concurrent;
 
 namespace TreeSizeApp.ViewModel
 {
@@ -198,24 +197,24 @@ namespace TreeSizeApp.ViewModel
                 IsProcessed = false
             };
             Nodes.Add(rootNode);
-
-            await GetFoldersAndFilesAsync(rootNode, _rootDir.Name, cancellationToken);
+           
+            await GetRootFoldersAndFilesAsync(rootNode, _rootDir.Name, cancellationToken);
             if (!cancellationToken.IsCancellationRequested)
             {
-                await Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    CurrentProgress = MaxProgressVolume;
-                    IsNotScanning = true;
-                    IsRefreshAllowed = true;
-                    rootNode.IsProcessed = true;
-                    OnPropertyChanged(nameof(Nodes));
-                });
+                CurrentProgress = MaxProgressVolume;
             }
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                IsNotScanning = true;
+                IsRefreshAllowed = true;
+                rootNode.IsProcessed = true;
+                OnPropertyChanged(nameof(Nodes));
+            });
         }
 
-        private async Task GetFoldersAndFilesAsync(Node parentNode, string parentDirectory, CancellationToken cancellationToken)
+        private async Task GetRootFoldersAndFilesAsync(Node parentNode, string parentDirectory, CancellationToken cancellationToken)
         {
-            const double MaxSystemResourceUsage = 0.25;
+            const double MaxSystemResourceUsage = 0.75;
             const double CoresPerProcessor = 2;
 
             IFileInfo[]? files = Array.Empty<IFileInfo>();
@@ -236,7 +235,6 @@ namespace TreeSizeApp.ViewModel
                     IsExpanded = false,
                     IsProcessed = false
                 };
-
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     lock (parentNode)
@@ -244,8 +242,12 @@ namespace TreeSizeApp.ViewModel
                         parentNode.Nodes.Add(node);
                     }
                 });
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
 
-                await GetFoldersAndFilesAsync(node, subdirectory.FullName.ToString(), cancellationToken);
+                GetFoldersAndFiles(node, subdirectory.FullName.ToString(), cancellationToken);
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
@@ -311,6 +313,110 @@ namespace TreeSizeApp.ViewModel
                 return;
             }
             await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                lock (parentNode)
+                {
+                    parentNode.FileCount += files.Length;
+                }
+                OnPropertyChanged(nameof(Nodes));
+            });
+            parentNode.IsProcessed = true;
+        }
+
+        private void GetFoldersAndFiles(Node parentNode, string parentDirectory, CancellationToken cancellationToken)
+        {
+            IFileInfo[]? files = Array.Empty<IFileInfo>();
+            IDirectoryInfo[]? subdirectories = Array.Empty<IDirectoryInfo>();
+            
+            subdirectories = Task.Run(() => _directoryService.GetDirectories(parentDirectory)).Result;
+            foreach (var subdirectory in subdirectories) 
+            {
+                Node node = new()
+                {
+                    Name = subdirectory.Name,
+                    Nodes = new ObservableCollection<Node>(),
+                    Icon = FolderIcon,
+                    IsExpanded = false,
+                    IsProcessed = false
+                };
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    lock (parentNode)
+                    {
+                        parentNode.Nodes.Add(node);
+                    }
+                });
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                GetFoldersAndFiles(node, subdirectory.FullName.ToString(), cancellationToken);
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    lock (parentNode)
+                    {
+                        parentNode.Size += node.Size;
+                        parentNode.FileCount += node.FileCount;
+                        parentNode.FolderCount += node.FolderCount;
+                        parentNode.SutableSize = _sizeConverter.Convert(parentNode.Size);
+                    }
+                });
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+            };
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                lock (parentNode)
+                {
+                    parentNode.FolderCount += subdirectories.Length;
+                    parentNode.IsProcessed = true;
+                }
+                OnPropertyChanged(nameof(Nodes));
+            });
+            parentNode.IsProcessed = true;
+
+            files = Task.Run(() => _directoryService.GetFiles(parentDirectory)).Result;
+            foreach(var file in files)
+            {
+                Node fileNode = new()
+                {
+                    Name = file.Name,
+                    Size = file.Length,
+                    SutableSize = _sizeConverter.Convert(file.Length),
+                    Icon = FileIcon,
+                    FileCount = 1,
+                    IsProcessed = true
+                };
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    lock (parentNode)
+                    {
+                        parentNode.Nodes.Add(fileNode);
+                        parentNode.Size += file.Length;
+                        parentNode.SutableSize = _sizeConverter.Convert(parentNode.Size);
+
+                        currentSize += file.Length;
+                        GetProgress();
+                    }
+                });
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+            };
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            Application.Current.Dispatcher.Invoke(() =>
             {
                 lock (parentNode)
                 {
