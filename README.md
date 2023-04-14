@@ -1,7 +1,7 @@
-# Task 10
+# WPF educational project
 
 
-## TreeSize App
+## Analog of the TreeSize App
 
 The TreeSize App is created for a computer drive's analysis.
 It calculates files and folders on the chosen drive.
